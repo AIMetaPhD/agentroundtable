@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agent Roundtable</title>
+<style>
+  :root { --bg:#0d1014; --panel:#151a21; --panel2:#1b212b; --line:#29303b; --ink:#e8edf5; --muted:#95a0b0; --accent:#7aa2ff; --ok:#46d39a; --warn:#f0b35b; --bad:#ff6b6b; --human:#7aa2ff; }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; }
+  body { background:var(--bg); color:var(--ink); font:15px/1.55 system-ui,"Segoe UI","Microsoft YaHei",sans-serif; overflow:hidden; }
+  button { font:inherit; color:var(--ink); background:#1d2531; border:1px solid var(--line); border-radius:9px; padding:8px 12px; cursor:pointer; }
+  button:hover { border-color:#3c4a60; }
+  button.primary { background:#1c3b66; border-color:#2d5d9c; }
+  button.danger { background:#3a1d20; border-color:#6b2a30; }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  input,textarea,select { font:inherit; color:var(--ink); background:#0b0e13; border:1px solid var(--line); border-radius:9px; padding:9px 10px; }
+  textarea { resize:vertical; }
+  .app { display:grid; grid-template-rows:64px minmax(0,1fr); height:100%; }
+  header { display:flex; align-items:center; gap:14px; padding:0 20px; border-bottom:1px solid var(--line); background:rgba(13,16,20,.92); backdrop-filter:blur(10px); }
+  header h1 { font-size:17px; margin:0; font-weight:650; letter-spacing:.2px; }
+  .pill { font-size:12px; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:3px 9px; white-space:nowrap; }
+  .pill.ok { color:var(--ok); border-color:#245c45; } .pill.bad { color:var(--bad); border-color:#6b2a30; } .pill.warn { color:var(--warn); border-color:#6b552a; }
+  .top-actions { margin-left:auto; display:flex; gap:8px; }
+  main { display:grid; grid-template-columns:minmax(0,1.8fr) minmax(320px,.95fr); min-height:0; }
+  .conversation { display:grid; grid-template-rows:minmax(0,1fr) auto; min-height:0; border-right:1px solid var(--line); }
+  #messages { overflow:auto; padding:26px clamp(16px,4vw,54px) 18px; }
+  .msg { display:grid; grid-template-columns:40px minmax(0,1fr); gap:12px; margin:0 0 20px; }
+  .avatar { width:40px; height:40px; border-radius:12px; display:grid; place-items:center; font-weight:800; background:#202837; color:var(--accent); border:1px solid #2d3748; }
+  .msg.agent .avatar { color:var(--ok); } .msg.human .avatar { color:var(--human); }
+  .msg.task .avatar { color:var(--warn); }
+  .msg-head { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin:1px 0 5px; }
+  .msg-name { font-weight:700; font-size:14px; } .msg-meta { font-size:11px; color:var(--muted); }
+  .msg-body { white-space:pre-wrap; overflow-wrap:anywhere; color:#dce3ee; }
+  .msg.human .msg-body { background:#141c2a; border:1px solid #24344d; border-radius:4px 13px 13px 13px; padding:11px 13px; }
+  .msg.task .msg-body { background:#2a2417; border:1px solid #5a4a29; border-radius:10px; padding:11px 13px; }
+  .msg.system .avatar { color:var(--warn); } .msg.system .msg-body { color:var(--warn); font-size:13px; }
+  .msg-status { font-size:10px; border:1px solid var(--line); border-radius:999px; padding:1px 6px; color:var(--muted); }
+  .msg-status.failed, .msg-status.cancelled { color:var(--bad); border-color:#6b2a30; }
+  .person.disabled { opacity:.5; }
+  .person .toggle { font-size:10px; padding:2px 6px; }
+  .approval { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .approval button { font-size:10px; padding:2px 6px; }
+  .msg-actions { margin-top:6px; display:flex; gap:6px; }
+  .msg-actions button { font-size:11px; padding:3px 8px; }
+  .system { text-align:center; color:var(--muted); font-size:12px; margin:10px 0 18px; }
+  .system span { background:var(--panel); border:1px solid var(--line); padding:5px 10px; border-radius:999px; }
+  .composer { border-top:1px solid var(--line); padding:14px clamp(16px,4vw,54px) 18px; background:rgba(13,16,20,.96); }
+  .composer-row { display:flex; gap:8px; align-items:flex-end; }
+  .composer textarea { flex:1; min-height:52px; max-height:150px; }
+  .composer .hint { font-size:12px; color:var(--muted); margin-top:7px; min-height:17px; }
+  aside { overflow:auto; padding:16px; display:flex; flex-direction:column; gap:14px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:13px; padding:14px; }
+  .card h2 { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:0 0 10px; font-weight:650; }
+  .person { display:flex; gap:9px; align-items:center; padding:7px 0; border-bottom:1px dashed var(--line); }
+  .person:last-child { border-bottom:0; }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--muted); flex:0 0 auto; }
+  .dot.idle { background:var(--ok); } .dot.processing { background:var(--warn); box-shadow:0 0 0 3px rgba(240,179,91,.15); } .dot.error { background:var(--bad); } .dot.disabled { background:var(--muted); } .dot.unknown { background:var(--warn); }
+  .person .copy { min-width:0; flex:1; } .person b { font-size:13px; } .person code { display:block; font-size:10px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .stack { display:flex; flex-direction:column; gap:8px; }
+  label { display:block; font-size:12px; color:var(--muted); margin:8px 0 4px; }
+  .hint { font-size:12px; color:var(--muted); }
+  pre.file { white-space:pre-wrap; background:#0b0e13; border:1px solid var(--line); border-radius:9px; padding:10px; max-height:20vh; overflow:auto; font-size:12px; margin:8px 0 0; }
+  .browse { max-height:220px; overflow:auto; border:1px solid var(--line); border-radius:9px; margin-top:8px; background:#0b0e13; }
+  .browse button { display:block; width:100%; text-align:left; border:0; border-bottom:1px solid #1a2029; border-radius:0; background:transparent; padding:6px 9px; font-size:12px; }
+  .browse button:hover { background:#141b25; }
+  .browse .empty { padding:8px 10px; color:var(--muted); font-size:12px; }
+  .session-item { font-size:12px; }
+  .approval { font-size:12px; color:var(--muted); padding:5px 0; border-bottom:1px dashed var(--line); }
+  .approval:last-child { border-bottom:0; }
+  @media (max-width:900px){ main{grid-template-columns:1fr;} aside{display:none;} .conversation{border-right:0;} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Agent Roundtable</h1>
+    <span id="roomName" class="pill">room</span>
+    <span id="roomState" class="pill ok">live</span>
+    <span id="workerState" class="pill">worker: idle</span>
+    <span id="lastSeq" class="pill">#0</span>
+    <div class="top-actions">
+      <button id="stopVoice">停止语音</button>
+      <button id="pause">暂停</button>
+      <button id="resume">继续</button>
+      <button id="end" class="danger">结束</button>
+    </div>
+  </header>
+  <main>
+    <section class="conversation">
+      <div id="messages"></div>
+      <div class="composer">
+        <div class="composer-row">
+          <textarea id="input" placeholder="以人类身份发言。语音转写会先放进这里，确认后再发送。"></textarea>
+          <button id="send" class="primary">发送</button>
+          <button id="mic">开始录音</button>
+        </div>
+        <label>本轮模式</label>
+        <select id="turnMode">
+          <option value="single">单答（默认：只由一位 Agent 回答）</option>
+          <option value="all">两位都回答（A→B→A）</option>
+          <option value="panel">三方接龙（Codex→Claude→子Agent→Codex）</option>
+        </select>
+        <select id="turnTarget"><option value="">收件人：自动轮换</option></select>
+        <div class="hint" id="status">默认一次发言只派给一位 Agent；需要三 Agent 依赖链时选“三方接龙”。</div>
+      </div>
+    </section>
+    <aside>
+      <div class="card">
+        <h2>会议</h2>
+        <select id="roomSelect"></select>
+        <div class="row" style="margin-top:8px"><button id="newRoom" class="primary">新建会议</button><span class="hint" id="roomStatus"></span></div>
+        <div class="hint" style="margin-top:6px">结束当前会议后可新建下一场；旧会议记录保留，可在下拉中查看。</div>
+        <details style="margin-top:10px"><summary>已结束会议</summary><div id="historyList" class="hint" style="margin-top:8px"></div></details>
+      </div>
+      <div class="card">
+        <h2>参会者</h2>
+        <div id="people"></div>
+      </div>
+      <div class="card">
+        <h2>邀请真实 Agent</h2>
+        <label>类型</label>
+        <select id="inviteProvider">
+          <option value="codex-cli/openai">Codex CLI（ChatGPT 登录）</option>
+          <option value="claude-code-cli/magpie">Claude Code CLI（MagPie）</option>
+          <option value="claude-code-subagent/magpie">Claude Code 子 Agent（经父进程代理）</option>
+        </select>
+        <div class="hint" id="inviteHint"></div>
+        <label>显示名</label>
+        <input id="inviteLabel" value="Codex 负责人" />
+        <label>角色</label>
+        <input id="inviteRole" value="负责人" />
+        <label>已有原生会话（可选）</label>
+        <div class="row"><button id="loadSessions">列出已有会话</button><select id="sessionPick" style="flex:1;min-width:0"><option value="">（不选择，新建会话）</option></select></div>
+        <div class="hint" id="sessionHint">只读发现本机会话；选择后会在首次发言时真正 resume，不是摘要复制。若该会话仍被 Codex/Claude 进程占用，原生 CLI 会拒绝恢复。</div>
+        <label>或手动填写会话 ID</label>
+        <input id="inviteSession" placeholder="Codex thread ID / Claude session UUID" />
+        <div class="row" style="margin-top:10px"><button id="invite" class="primary">邀请</button><span class="hint" id="inviteStatus"></span></div>
+        <div class="hint" style="margin-top:8px">首次发言时才创建/恢复原生会话；不会伪造“已加入”。无法把消息注入正在运行的其他进程。</div>
+      </div>
+      <div class="card">
+        <h2>共享文件（只读快照）</h2>
+        <label>项目根</label>
+        <select id="projectRoot"></select>
+        <div class="row" style="margin-top:8px"><button id="browseUp">上一级</button><span class="hint" id="browsePath" style="word-break:break-all"></span></div>
+        <div class="browse" id="browseList"><div class="empty">加载中…</div></div>
+        <div class="row" style="margin-top:8px"><button id="addRoot">把当前目录设为项目根</button></div>
+        <label>或直接输入文件路径</label>
+        <div class="row"><input id="sharedPath" placeholder="R3\\STATE_FIX_REPORT.md" style="flex:1;min-width:0" /><button id="sharedSelect">选择快照</button></div>
+        <div class="hint" id="sharedStatus"></div>
+        <div class="hint" id="sharedMeta"></div>
+        <pre class="file" id="sharedBody"></pre>
+      </div>
+      <div class="card">
+        <h2>批准并执行任务</h2>
+        <label>执行者</label>
+        <select id="taskParticipant"></select>
+        <label>范围</label>
+        <select id="taskScope"></select>
+        <label>任务 ID</label>
+        <input id="taskId" value="T-1" />
+        <label>指令</label>
+        <textarea id="taskInstruction" rows="3">把第 2 行改为 "line1: APPROVED"，然后在末尾追加一行 "step2: DONE"。</textarea>
+        <div class="row" style="margin-top:10px"><button id="taskRun" class="primary">人类批准并执行</button><span class="hint" id="taskStatus"></span></div>
+        <div id="approvals" class="hint" style="margin-top:8px"></div>
+      </div>
+    </aside>
+  </main>
+</div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const hashToken = new URLSearchParams(location.hash.slice(1)).get('token');
+  let TOKEN = hashToken || localStorage.getItem('r2Token') || '';
+  if (hashToken) {
+    localStorage.setItem('r2Token', hashToken);
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+  if (!TOKEN) {
+    TOKEN = (prompt('输入本机人类令牌（app/data/room-token.txt）') || '').trim();
+    if (TOKEN) localStorage.setItem('r2Token', TOKEN);
+  }
+  let all = [], lastSeq = 0, es = null, recording = false, media = null, chunks = [], currentAudio = null, speakGen = 0;
+  let browsePath = null, roots = [], roomList = [];
+  let sttGen = 0, sttAbort = null, sttBusy = false, sseErrors = 0;
+  const seenSeq = new Set();
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  function headers(json) { const h = {}; if (json) h['content-type'] = 'application/json'; if (TOKEN) h.authorization = 'Bearer ' + TOKEN; return h; }
+  async function api(p, opt) {
+    const o = Object.assign({}, opt || {}); o.headers = Object.assign(headers(!!o.body), o.headers || {});
+    const r = await fetch(p, o);
+    if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 400));
+    return r.json();
+  }
+  function setStatus(t, bad) { $('status').textContent = t || ''; $('status').style.color = bad ? 'var(--bad)' : 'var(--muted)'; }
+  function mergeMessages(list) {
+    let changed = false;
+    for (const m of (list || [])) {
+      if (!m || seenSeq.has(m.seq)) continue;
+      seenSeq.add(m.seq); all.push(m); lastSeq = Math.max(lastSeq, m.seq); changed = true;
+    }
+    if (changed) { all.sort((a, b) => a.seq - b.seq); $('lastSeq').textContent = '#' + lastSeq; renderMessages(); }
+    return changed;
+  }
+  function replaceMessages(list) {
+    all = []; seenSeq.clear(); lastSeq = 0;
+    mergeMessages(list || []);
+  }
+  function short(id) { return id ? String(id).slice(0, 8) + '…' : 'new'; }
+  function renderPeople() {
+    const people = (window.__state && window.__state.participants) || [];
+    $('people').innerHTML = people.map((p) => `
+      <div class="person ${p.disabled ? 'disabled' : ''}"><span class="dot ${p.status || 'idle'}"></span><div class="copy"><b>${esc(p.label)}</b>
+      <code>${esc(p.provider)} · ${esc(p.role)} · ${short(p.session_id)}${p.disabled ? ' · disabled' : ''}</code></div>
+      ${p.provider !== 'human' ? `<button class="toggle" data-person="${esc(p.id)}" data-disable="${p.disabled ? '0' : '1'}">${p.disabled ? '启用' : '禁用'}</button>` : ''}</div>`).join('') || '<div class="hint">尚无参会者</div>';
+    $('people').querySelectorAll('button[data-person]').forEach((b) => {
+      b.onclick = async () => {
+        try {
+          await api('/api/participants/' + encodeURIComponent(b.dataset.person) + '/' + (b.dataset.disable === '1' ? 'disable' : 'enable'), { method: 'POST' });
+          await loadState();
+        } catch (e) { setStatus('操作失败：' + e.message, true); }
+      };
+    });
+    const agents = people.filter((p) => p.provider !== 'human' && !p.disabled);
+    $('taskParticipant').innerHTML = agents.map((p) => `<option value="${esc(p.id)}">${esc(p.label)}</option>`).join('');
+    const keepTarget = $('turnTarget').value;
+    $('turnTarget').innerHTML = '<option value="">收件人：自动轮换</option>' + agents.map((p) => `<option value="${esc(p.id)}">@${esc(p.id)} · ${esc(p.label)}</option>`).join('');
+    if (agents.some((p) => p.id === keepTarget)) $('turnTarget').value = keepTarget;
+  }
+  function renderMessages() {
+    const box = $('messages');
+    box.innerHTML = all.map((m) => {
+      const cls = m.sender === 'human' ? 'human' : (m.kind === 'task' ? 'task' : (m.kind === 'system' ? 'system' : 'agent'));
+      const who = m.sender_label || m.sender;
+      const meta = m.meta || {};
+      const status = m.status && m.status !== 'complete' ? `<span class="msg-status ${esc(m.status)}">${esc(m.status)}</span>` : '';
+      return `<article class="msg ${cls}"><div class="avatar">${esc(who.slice(0,1))}</div><div>
+        <div class="msg-head"><span class="msg-name">${esc(who)}</span>${status}<span class="msg-meta">#${m.seq} · ${esc(m.provider)}${meta.latency_ms ? ' · ' + meta.latency_ms + ' ms' : ''}${meta.session_id ? ' · ' + short(meta.session_id) : ''}${meta.subagent_id ? ' · 子Agent ' + short(meta.subagent_id) + '（经父进程代理' + (meta.text_source === 'parent-relay' ? '·父转发' : '') + '）' : ''}</span></div>
+        <div class="msg-body">${esc(m.content)}</div>
+        ${m.sender !== 'human' && m.status === 'complete' ? `<div class="msg-actions"><button data-tts="${m.seq}">播放语音</button></div>` : ''}
+      </div></article>`;
+    }).join('') || '<div class="system"><span>房间已就绪。邀请至少两位真实 Agent，然后发言。</span></div>';
+    box.scrollTop = box.scrollHeight;
+    box.querySelectorAll('button[data-tts]').forEach((b) => b.onclick = () => speak(b.dataset.tts));
+  }
+  function stopAudio() {
+    speakGen += 1;
+    if (!currentAudio) { setStatus(''); return; }
+    try { currentAudio.pause(); currentAudio.currentTime = 0; } catch { /* ignore */ }
+    try { URL.revokeObjectURL(currentAudio.src); } catch { /* ignore */ }
+    currentAudio = null;
+    setStatus('');
+  }
+  async function speak(seq) {
+    const m = all.find((x) => String(x.seq) === String(seq)); if (!m) return;
+    stopAudio();
+    const gen = ++speakGen;
+    setStatus('合成语音…');
+    try {
+      const r = await api('/api/tts', { method: 'POST', body: JSON.stringify({ text: m.content }) });
+      const wav = await fetch(r.url, { headers: { authorization: 'Bearer ' + TOKEN } });
+      if (gen !== speakGen) return;
+      if (!wav.ok) throw new Error('读取音频失败 ' + wav.status);
+      const a = new Audio(URL.createObjectURL(await wav.blob()));
+      if (gen !== speakGen) { URL.revokeObjectURL(a.src); return; }
+      currentAudio = a;
+      a.onended = () => stopAudio();
+      a.onerror = () => { stopAudio(); setStatus('语音播放失败', true); };
+      await a.play(); setStatus('播放中（可点“停止语音”）');
+    } catch (e) { if (gen === speakGen) { stopAudio(); setStatus('语音失败：' + e.message, true); } }
+  }
+  function renderRooms(st) {
+    if (st.rooms) roomList = st.rooms;
+    const cur = st.room_id || (st.room && st.room.id);
+    $('roomSelect').innerHTML = roomList.map((r) =>
+      `<option value="${esc(r.id)}"${r.id === cur ? ' selected' : ''}>${esc(r.name)} · ${esc(r.state)}${r.message_count ? ' · ' + r.message_count + ' 条' : ''}</option>`).join('');
+    if ($('historyList')) {
+      const ended = roomList.filter((r) => r.state === 'ended');
+      $('historyList').innerHTML = ended.length
+        ? ended.map((r) => `<div class="approval">${esc(r.name)} · ${esc(r.created_at)} · ${r.message_count || 0} 条 <button data-history="${esc(r.id)}">查看</button></div>`).join('')
+        : '<div>暂无已结束会议</div>';
+      $('historyList').querySelectorAll('button[data-history]').forEach((b) => {
+        b.onclick = () => {
+          $('roomSelect').value = b.dataset.history;
+          $('roomSelect').dispatchEvent(new Event('change'));
+        };
+      });
+    }
+  }
+  function applyState(st) {
+    window.__state = st;
+    $('roomName').textContent = st.room.name;
+    const rs = st.room.state || (st.room.ended ? 'ended' : (st.room.paused ? 'paused' : 'active'));
+    $('roomState').textContent = rs === 'active' ? 'live' : rs;
+    $('roomState').className = 'pill ' + (rs === 'active' ? 'ok' : 'bad');
+    renderRooms(st);
+    const ended = rs === 'ended';
+    $('send').disabled = ended; $('mic').disabled = ended; $('invite').disabled = ended;
+    $('newRoom').disabled = roomList.some((r) => r.state !== 'ended');
+    if (st.worker) {
+      const w = st.worker;
+      $('workerState').textContent = 'worker: ' + (w.running ? (w.current_kind || 'running') : 'idle');
+      $('workerState').className = 'pill ' + (w.running ? 'warn' : 'ok');
+    }
+    $('sharedMeta').textContent = `${st.shared.path} · sha256=${st.shared.sha256.slice(0,16)}… · ${st.shared.bytes} bytes` + (st.shared.source_path ? ` · source=${st.shared.source_path}` : '');
+    $('approvals').innerHTML = (st.approvals || []).map((a) => {
+      const exp = a.expires_at ? ` · exp ${new Date(a.expires_at).toLocaleTimeString()}` : '';
+      const revoke = a.status === 'active' ? `<button data-revoke="${esc(a.id)}">撤销</button>` : '';
+      return `<div class="approval">${esc(a.task_id)} · ${esc(a.scope)} · ${esc(a.status)} · ${a.steps_used}/${a.steps_allowed}${exp}${revoke}</div>`;
+    }).join('');
+    $('approvals').querySelectorAll('button[data-revoke]').forEach((b) => {
+      b.onclick = async () => {
+        try { await api('/api/approvals/' + encodeURIComponent(b.dataset.revoke) + '/revoke', { method: 'POST' }); await loadState(); }
+        catch (e) { setStatus('撤销失败：' + e.message, true); }
+      };
+    });
+    if (st.files) $('taskScope').innerHTML = st.files.map((f) => `<option value="${esc(f.path)}">${esc(f.path)}</option>`).join('');
+    if (st.shared) api('/api/shared').then((s) => { $('sharedBody').textContent = s.content; }).catch(() => {});
+    renderPeople();
+  }
+  async function loadState() {
+    const st = await api('/api/state?since=0');
+    replaceMessages(st.messages || []);
+    lastSeq = Math.max(lastSeq, st.lastSeq || 0);
+    $('lastSeq').textContent = '#' + lastSeq;
+    applyState(st);
+    renderMessages();
+  }
+  async function pull() {
+    const r = await api('/api/messages?since=' + lastSeq);
+    if (r.messages.length) mergeMessages(r.messages);
+    if (typeof r.lastSeq === 'number' && r.lastSeq > lastSeq) { lastSeq = r.lastSeq; $('lastSeq').textContent = '#' + lastSeq; }
+  }
+  function connect() {
+    if (es) es.close();
+    es = new EventSource('/api/stream?token=' + encodeURIComponent(TOKEN));
+    es.onmessage = async (ev) => {
+      let o; try { o = JSON.parse(ev.data); } catch { return; }
+      if (o.type === 'hello') {
+        if (o.room) applyState(Object.assign(window.__state || {}, { room: o.room, worker: o.worker }));
+        // Do NOT jump lastSeq to the server value: that would skip messages
+        // created while this tab was disconnected. Pull the gap by seq.
+        await pull().catch(() => {});
+      }
+      if (o.type === 'message') mergeMessages([o.message]);
+      if (o.type === 'participant') {
+        const st = window.__state || {}; st.participants = (st.participants || []).filter((p) => p.id !== o.participant.id).concat([o.participant]);
+        window.__state = st; renderPeople();
+      }
+      if (o.type === 'job') {
+        const running = o.job.state === 'running';
+        $('workerState').textContent = 'worker: ' + (running ? (o.job.kind || 'running') : 'idle');
+        $('workerState').className = 'pill ' + (running ? 'warn' : 'ok');
+      }
+      if (o.type === 'dispatch_start') setStatus(`${o.label || o.participant} 正在处理…#${(o.message_seqs||[]).join(',')}`, false);
+      if (o.type === 'dispatch_end') setStatus(o.ok ? '本轮处理完成；可以继续发言。' : 'Agent 处理失败，见参会者状态。', !o.ok);
+      if (o.type === 'room') { const st = window.__state || {}; st.room = o.room; window.__state = st; applyState(st); }
+      if (o.type === 'room_switch') { await loadState(); connect(); }
+      if (o.type === 'shared') { const st = window.__state || {}; st.shared = o.shared; window.__state = st; applyState(st); api('/api/shared').then((x) => { $('sharedBody').textContent = x.content; }).catch(() => {}); }
+      if (ev.type === 'end' || o.type === 'end') { stopAudio(); cancelRecording(); setStatus('会议已结束', true); if (es) es.close(); }
+    };
+    es.addEventListener('end', () => { stopAudio(); cancelRecording(); setStatus('会议已结束', true); if (es) es.close(); });
+    es.onopen = () => { sseErrors = 0; setStatus('已连接；可以继续发言。', false); pull().catch(() => {}); };
+    es.onerror = () => {
+      sseErrors += 1;
+      setStatus('SSE 断线，正在重连…', true);
+      if (sseErrors >= 10) { try { es.close(); } catch { /* ignore */ } setStatus('连接失败：令牌可能已失效。请刷新页面并重新输入令牌。', true); }
+    };
+  }
+  async function send() {
+    const text = $('input').value.trim(); if (!text) return;
+    stopAudio();
+    $('input').value = ''; setStatus('已发送，等待房间派单…');
+    try {
+      const r = await api('/api/messages', { method: 'POST', body: JSON.stringify({ content: text, client_id: 'ui-' + Date.now(), mode: $('turnMode').value, target: $('turnTarget').value || null }) });
+      if (r.queued) setStatus('会议已暂停：消息已排队，点“继续”后会处理。', false);
+    } catch (e) { setStatus('发送失败：' + e.message, true); $('input').value = text; }
+  }
+  // --- mic -> 16k mono WAV -> local STT ---
+  async function startRecording() {
+    if (sttBusy) { setStatus('正在转写，请稍候…', true); return; }
+    if (recording) { stopRecording(); return; }
+    stopAudio();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      const src = ac.createMediaStreamSource(stream); const proc = ac.createScriptProcessor(4096, 1, 1); const buf = [];
+      const mute = ac.createGain(); mute.gain.value = 0;
+      proc.onaudioprocess = (e) => { if (recording) buf.push(new Float32Array(e.inputBuffer.getChannelData(0))); };
+      src.connect(proc); proc.connect(mute); mute.connect(ac.destination);
+      media = { stream, ac, proc, src, mute, rate: ac.sampleRate }; chunks = buf; recording = true;
+      $('mic').textContent = '停止并转写'; setStatus('录音中…（麦克风回放已静音，不会有回声）');
+    } catch (e) { setStatus('麦克风不可用：' + e.message, true); }
+  }
+  function cancelRecording() {
+    recording = false; $('mic').textContent = '开始录音';
+    sttGen += 1;
+    if (sttAbort) { try { sttAbort.abort(); } catch { /* ignore */ } sttAbort = null; }
+    if (!media) return;
+    try { media.proc.disconnect(); } catch { /* ignore */ }
+    try { media.src.disconnect(); } catch { /* ignore */ }
+    try { media.mute.disconnect(); } catch { /* ignore */ }
+    media.stream.getTracks().forEach((t) => t.stop());
+    media.ac.close().catch(() => {});
+    media = null; chunks = [];
+    setStatus('');
+  }
+  function downsample(buf, rate) {
+    const len = buf.reduce((a, b) => a + b.length, 0); const all = new Float32Array(len); let o = 0;
+    for (const b of buf) { all.set(b, o); o += b.length; }
+    const ratio = rate / 16000, n = Math.floor(all.length / ratio), out = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const s = Math.floor(i * ratio), e = Math.min(all.length, Math.floor((i + 1) * ratio)); let sum = 0; for (let j = s; j < e; j++) sum += all[j]; out[i] = sum / Math.max(1, e - s); }
+    return out;
+  }
+  function wavBlob(samples) {
+    const b = new ArrayBuffer(44 + samples.length * 2), v = new DataView(b); const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, 'RIFF'); v.setUint32(4, 36 + samples.length * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 16000, true); v.setUint32(28, 32000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    w(36, 'data'); v.setUint32(40, samples.length * 2, true);
+    for (let i = 0; i < samples.length; i++) { const s = Math.max(-1, Math.min(1, samples[i])); v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true); }
+    return new Blob([b], { type: 'audio/wav' });
+  }
+  async function stopRecording() {
+    recording = false; $('mic').textContent = '开始录音';
+    if (!media) return;
+    try { media.proc.disconnect(); } catch { /* ignore */ }
+    try { media.src.disconnect(); } catch { /* ignore */ }
+    try { media.mute.disconnect(); } catch { /* ignore */ }
+    media.stream.getTracks().forEach((t) => t.stop()); await media.ac.close();
+    const samples = downsample(chunks, media.rate); media = null; chunks = [];
+    if (!samples.length) { setStatus('没有录到声音', true); return; }
+    const gen = ++sttGen;
+    const controller = new AbortController();
+    sttAbort = controller; sttBusy = true; $('mic').disabled = true;
+    setStatus('转写中…');
+    try {
+      const r = await fetch('/api/stt', { method: 'POST', headers: { 'content-type': 'audio/wav', authorization: 'Bearer ' + TOKEN }, body: wavBlob(samples), signal: controller.signal });
+      const j = await r.json();
+      if (gen !== sttGen) return;
+      if (!r.ok) throw new Error(j.error || 'stt failed');
+      $('input').value = (j.text || '') + ($('input').value ? '\n' + $('input').value : '');
+      $('input').focus(); setStatus('原转写已放入输入框；' + (j.warning || '请核对后发送。'));
+    } catch (e) {
+      if (gen === sttGen && e.name !== 'AbortError') setStatus('转写失败：' + e.message, true);
+    } finally {
+      if (gen === sttGen) { sttBusy = false; $('mic').disabled = false; if (sttAbort === controller) sttAbort = null; }
+    }
+  }
+  $('send').onclick = send;
+  $('mic').onclick = startRecording;
+  $('stopVoice').onclick = stopAudio;
+  $('input').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send(); });
+  $('inviteProvider').onchange = () => {
+    const provider = $('inviteProvider').value;
+    const defaults = provider.startsWith('codex') ? { label: 'Codex', role: '负责人' }
+      : provider.includes('subagent') ? { label: '子 Agent', role: '评审者' }
+        : { label: 'Claude Code', role: '评审者' };
+    $('inviteLabel').value = defaults.label;
+    $('inviteRole').value = defaults.role;
+    $('sessionPick').innerHTML = '<option value="">（不选择，新建会话）</option>';
+    $('inviteHint').textContent = provider === 'claude-code-subagent/magpie'
+      ? '实验性：需要父进程返回可核验的 Agent ID；若失败，请改用 Codex 或 Claude Code CLI。'
+      : provider === 'claude-code-cli/magpie'
+        ? 'Claude Code CLI 通过本机 MagPie 网关调用；首次发言才验证连接。'
+        : 'Codex CLI 需要本机已登录 Codex；首次发言才验证连接。';
+  };
+  $('inviteProvider').onchange();
+  $('invite').onclick = async () => {
+    const provider = $('inviteProvider').value; const label = $('inviteLabel').value.trim();
+    const role = $('inviteRole').value.trim() || '参会者';
+    if (!label) return;
+    $('inviteStatus').textContent = '加入中…';
+    try {
+      const id = provider.startsWith('codex') ? 'codex' : (provider.includes('subagent') ? 'subagent' : 'claude');
+      const sessionId = $('inviteSession').value.trim();
+      const r = await api('/api/invite', { method: 'POST', body: JSON.stringify({ id, label, provider, role, session_id: sessionId || null }) });
+      $('inviteStatus').textContent = sessionId ? '已加入，将尝试恢复该原生会话' : '已加入（会话将在首次发言时创建）';
+      await loadState();
+    } catch (e) { $('inviteStatus').textContent = '失败：' + e.message; }
+  };
+  $('pause').onclick = async () => {
+    try { await api('/api/control', { method: 'POST', body: JSON.stringify({ action: 'pause' }) }); setStatus('已暂停；当前回合已中止，剩余消息留在队列。', false); await loadState(); }
+    catch (e) { setStatus('暂停失败：' + e.message, true); await loadState().catch(() => {}); }
+  };
+  $('resume').onclick = async () => {
+    try { await api('/api/control', { method: 'POST', body: JSON.stringify({ action: 'resume' }) }); setStatus('已继续；排队中的消息会开始处理。', false); await loadState(); }
+    catch (e) { setStatus('继续失败：' + e.message, true); await loadState().catch(() => {}); }
+  };
+  $('end').onclick = async () => {
+    stopAudio(); cancelRecording();
+    try { await api('/api/control', { method: 'POST', body: JSON.stringify({ action: 'end' }) }); setStatus('会议已结束', true); await loadState(); }
+    catch (e) { setStatus('结束失败：' + e.message, true); await loadState().catch(() => {}); }
+  };
+  $('taskRun').onclick = async () => {
+    const scope = $('taskScope').value; const participant = $('taskParticipant').value;
+    const taskId = $('taskId').value.trim(); const instruction = $('taskInstruction').value.trim();
+    if (!scope || !participant || !taskId) { $('taskStatus').textContent = '缺少执行者/范围/任务 ID'; return; }
+    if ($('taskRun').disabled) return;
+    $('taskRun').disabled = true; $('taskStatus').textContent = '创建批准…';
+    let approvalId = null;
+    try {
+      const files = await api('/api/files'); const target = (files.files || []).find((f) => f.path === scope);
+      if (!target) throw new Error('scope 文件不存在');
+      const ap = await api('/api/approvals', { method: 'POST', body: JSON.stringify({ task_id: taskId, scope, baseline_sha256: target.sha256, note: 'approved in UI' }) });
+      approvalId = ap.approval.id;
+      $('taskStatus').textContent = '已批准，执行中…';
+      await api('/api/tasks', { method: 'POST', body: JSON.stringify({ approval_id: approvalId, participant_id: participant, task_id: taskId, scope, instruction }) });
+      $('taskStatus').textContent = '已提交，结果会出现在房间。';
+      await loadState();
+    } catch (e) {
+      // Do not leave an active approval that blocks a retry with the same task ID.
+      if (approvalId) { try { await api('/api/approvals/' + encodeURIComponent(approvalId) + '/revoke', { method: 'POST' }); } catch { /* ignore */ } }
+      $('taskStatus').textContent = '失败：' + e.message;
+      await loadState().catch(() => {});
+    } finally { $('taskRun').disabled = false; }
+  };
+  async function selectShared(p) {
+    $('sharedStatus').textContent = '固定快照中…';
+    try {
+      const r = await api('/api/shared/select', { method: 'POST', body: JSON.stringify({ path: p }) });
+      $('sharedStatus').textContent = `已固定 ${r.shared.source_path} → ${r.shared.sha256.slice(0, 16)}…`;
+      $('sharedPath').value = r.shared.source_path || p;
+      await loadState();
+    } catch (e) { $('sharedStatus').textContent = '失败：' + e.message; }
+  }
+  $('sharedSelect').onclick = () => {
+    const p = $('sharedPath').value.trim();
+    if (!p) { $('sharedStatus').textContent = '请输入项目文件路径'; return; }
+    selectShared(p);
+  };
+  async function browse(p) {
+    $('browsePath').textContent = p || '';
+    const r = await api('/api/projects/browse?path=' + encodeURIComponent(p || ''));
+    browsePath = r.path;
+    const items = [];
+    if (r.parent) items.push(`<button data-dir="${esc(r.parent)}">⬑ 上一级</button>`);
+    for (const d of r.dirs) items.push(`<button data-dir="${esc(d.path)}">📁 ${esc(d.name)}</button>`);
+    for (const f of r.files) items.push(`<button data-file="${esc(f.path)}">📄 ${esc(f.name)} · ${f.size} B</button>`);
+    $('browseList').innerHTML = items.join('') || '<div class="empty">此目录没有子目录或 .md/.txt 文件</div>';
+    $('browseList').querySelectorAll('button[data-dir]').forEach((b) => { b.onclick = () => browse(b.dataset.dir).catch((e) => setStatus('浏览失败：' + e.message, true)); });
+    $('browseList').querySelectorAll('button[data-file]').forEach((b) => { b.onclick = () => selectShared(b.dataset.file); });
+  }
+  async function loadRoots() {
+    const r = await api('/api/projects');
+    roots = r.roots || [];
+    $('projectRoot').innerHTML = roots.map((x) => `<option value="${esc(x)}">${esc(x)}</option>`).join('');
+    if (!browsePath) browsePath = r.default_root;
+  }
+  $('projectRoot').onchange = () => {
+    if ($('projectRoot').value) browse($('projectRoot').value).catch((e) => setStatus('浏览失败：' + e.message, true));
+  };
+  $('browseUp').onclick = () => { if (browsePath) browse(browsePath).catch(() => {}); };
+  $('addRoot').onclick = async () => {
+    if (!browsePath) return;
+    try {
+      const r = await api('/api/projects/roots', { method: 'POST', body: JSON.stringify({ path: browsePath }) });
+      roots = r.roots;
+      $('projectRoot').innerHTML = roots.map((x) => `<option value="${esc(x)}"${x === browsePath ? ' selected' : ''}>${esc(x)}</option>`).join('');
+      $('sharedStatus').textContent = '已加入项目根：' + browsePath;
+    } catch (e) { $('sharedStatus').textContent = '失败：' + e.message; }
+  };
+  $('roomSelect').onchange = async () => {
+    const id = $('roomSelect').value;
+    $('roomStatus').textContent = '切换中…';
+    try {
+      await api('/api/rooms/' + encodeURIComponent(id) + '/select', { method: 'POST' });
+      await loadState(); connect();
+      $('roomStatus').textContent = '已切换';
+    } catch (e) { $('roomStatus').textContent = '切换失败：' + e.message; await loadState().catch(() => {}); }
+  };
+  $('newRoom').onclick = async () => {
+    const name = (prompt('新会议名称（可留空）') || '').trim();
+    $('roomStatus').textContent = '新建中…';
+    try {
+      const r = await api('/api/rooms', { method: 'POST', body: JSON.stringify({ name }) });
+      $('roomStatus').textContent = '已新建：' + r.room.name;
+      await loadState(); connect();
+    } catch (e) { $('roomStatus').textContent = '新建失败：' + e.message; }
+  };
+  $('loadSessions').onclick = async () => {
+    const provider = $('inviteProvider').value;
+    if (provider.includes('subagent')) { $('sessionHint').textContent = '子 Agent 跟随父进程会话，不使用独立列表。'; return; }
+    const kind = provider.startsWith('codex') ? 'codex' : 'claude';
+    $('sessionHint').textContent = '读取中…';
+    try {
+      const r = await api('/api/sessions?provider=' + kind + '&limit=30');
+      $('sessionPick').innerHTML = '<option value="">（不选择，新建会话）</option>' + r.sessions.map((s) =>
+        `<option value="${esc(s.id)}"${s.active ? ' disabled' : ''}>${s.active ? '⚠ 当前占用 · ' : ''}${esc(s.title)} · ${esc((s.cwd || '').split(/[\\/]/).pop() || '')} · ${new Date(s.updated_at).toLocaleString()}</option>`).join('');
+      $('sessionHint').textContent = r.sessions.length ? `找到 ${r.sessions.length} 个会话；⚠ 当前占用的会话无法被本 App 恢复，留空可新建。` : '没有找到已有会话；留空将新建。';
+    } catch (e) { $('sessionHint').textContent = '读取失败：' + e.message; }
+  };
+  $('sessionPick').onchange = () => { $('inviteSession').value = $('sessionPick').value || ''; };
+  (async function init() {
+    try {
+      await loadState(); connect(); setInterval(() => pull().catch(() => {}), 2500);
+      await loadRoots(); browse(browsePath).catch(() => {});
+    }
+    catch (e) {
+      if (String(e.message || '').startsWith('401')) {
+        localStorage.removeItem('r2Token');
+        setStatus('令牌无效或服务已重启；请刷新页面，输入 app\\data\\room-token.txt 中的新令牌。', true);
+      } else setStatus('初始化失败：' + e.message, true);
+    }
+  })();
+})();
+</script>
+</body>
+</html>

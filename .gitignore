@@ -1,0 +1,26 @@
+# Runtime data (never commit)
+data/
+data-*/
+app/data/
+app/data-*/
+qa/data-*/
+qa/data/
+qa/evidence/*.json
+evidence/final/*.json
+*.zip
+app/tools/__pycache__/
+__pycache__/
+*.wav
+*.tmp
+data*/
+app/data*/
+qa/data*/
+smoke-data*/
+qa/server-*.log
+*.log
+qa/evidence/*.txt
+qa/evidence/*.png
+qa/*.cjs
+qa/*.bak
+evidence/final/
+qa/results.sanitized.json

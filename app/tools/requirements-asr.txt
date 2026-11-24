@@ -1,0 +1,5 @@
+# Optional bilingual ASR backend (tested on Windows 11, Python 3.13).
+# This does not download a model by itself; point R2_WHISPER_MODEL at a local
+# CTranslate2 model directory.
+faster-whisper==1.2.1
+av==16.0.1

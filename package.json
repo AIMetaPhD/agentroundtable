@@ -1,0 +1,26 @@
+{
+  "name": "agent-roundtable",
+  "version": "0.1.0",
+  "description": "Local-first multi-agent roundtable web app with real Codex/Claude Code sessions, shared project snapshots and human-approved execution.",
+  "type": "commonjs",
+  "private": false,
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "start": "node app/server.js",
+    "start:mock": "set R2_PROVIDER_MOCK=1&& node app/server.js",
+    "test": "python test_verify.py"
+  },
+  "keywords": [
+    "multi-agent",
+    "local-first",
+    "codex",
+    "claude-code",
+    "sqlite",
+    "agent-collaboration"
+  ],
+  "dependencies": {},
+  "devDependencies": {}
+}

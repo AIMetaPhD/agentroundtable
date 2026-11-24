@@ -1,0 +1,168 @@
+{
+  "task": "v0.1.0 Mock-mode black-box acceptance",
+  "finalized_at": "2026-11-23T15:04:00+00:00",
+  "port": 8836,
+  "base_url": "http://127.0.0.1:8836",
+  "provider_env": "R2_PROVIDER_MOCK=1",
+  "shared_file": "app/README.md",
+  "local_sha256": "93c04c8a92fe1ce3a43b7543d22f8eed9a39ec7db6b916122f00b3950720f2ed",
+  "overall": "PASS",
+  "test_verify": {
+    "command": "python test_verify.py",
+    "status": "PASS",
+    "summary": "TEST VERIFY PASS (exit 0). Printed: PASS health and schema v3; PASS token generation; PASS authentication required; PASS meeting one created; PASS mock mode over real provider names; PASS shared snapshot hash; PASS A-B-A discussion with snapshot hash; PASS meeting isolation and history; PASS explicit mock provider; TEST VERIFY PASS."
+  },
+  "checks": [
+    {
+      "name": "health_schema_v3",
+      "status": "PASS",
+      "command": "GET /api/health (R2_PORT=8836, R2_PROVIDER_MOCK=1, fresh R2_DATA_DIR)",
+      "summary": "ok=True schema_version=3"
+    },
+    {
+      "name": "state_requires_token",
+      "status": "PASS",
+      "command": "GET /api/state without Authorization header",
+      "summary": "HTTP 401"
+    },
+    {
+      "name": "initial_meeting_ended",
+      "status": "PASS",
+      "command": "POST /api/control {action:end}",
+      "summary": "HTTP 200"
+    },
+    {
+      "name": "invite_codex_and_claude",
+      "status": "PASS",
+      "command": "POST /api/invite codex-cli/openai + claude-code-cli/magpie",
+      "summary": "invites=[[\"agent-a\", \"codex-cli/openai\", 200], [\"agent-b\", \"claude-code-cli/magpie\", 200]]"
+    },
+    {
+      "name": "shared_snapshot_sha256",
+      "status": "PASS",
+      "command": "POST /api/shared/select app/README.md; compare with sha256sum",
+      "summary": "api_sha256=93c04c8a92fe1ce3a43b7543d22f8eed9a39ec7db6b916122f00b3950720f2ed local_sha256=93c04c8a92fe1ce3a43b7543d22f8eed9a39ec7db6b916122f00b3950720f2ed match=True"
+    },
+    {
+      "name": "aba_discussion_with_sha256",
+      "status": "PASS",
+      "command": "POST /api/messages {mode:all}; poll GET /api/state?since=0",
+      "summary": "senders=[\"agent-a\", \"agent-b\", \"agent-a\"] echo_same_sha=True complete=True elapsed_s=0.231"
+    },
+    {
+      "name": "env_mock_over_real_provider_names",
+      "status": "PASS",
+      "command": "R2_PROVIDER_MOCK=1; replies from codex-cli/openai + claude-code-cli/magpie",
+      "summary": "deterministic MockProvider signature present=True"
+    },
+    {
+      "name": "meeting_isolation_and_history",
+      "status": "PASS",
+      "command": "POST /api/control end; POST /api/rooms; GET /api/state?since=0; GET /api/rooms",
+      "summary": "two_meetings_created=True new_room_id_differs=True new_meeting_messages=0 old_meeting_message_count=4"
+    },
+    {
+      "name": "explicit_mock_provider_replies",
+      "status": "PASS",
+      "command": "POST /api/invite {provider:mock}; POST /api/messages {mode:single,target:agent-c}",
+      "summary": "replies=1 sha_echo=True"
+    },
+    {
+      "name": "no_participant_errors",
+      "status": "PASS",
+      "command": "GET /api/health after meeting 1 and at end",
+      "summary": "after_meeting_1=[] final=[]"
+    },
+    {
+      "name": "no_403_no_429",
+      "status": "PASS",
+      "command": "collect every HTTP status in the flow",
+      "summary": "403/429_seen=[]"
+    }
+  ],
+  "repo_checks": [
+    {
+      "name": "package_json_present",
+      "status": "PASS",
+      "command": "cat package.json",
+      "summary": "name=agent-roundtable version=0.1.0 license=MIT engines node>=22.12.0 dependencies={} scripts: start, start:mock, test"
+    },
+    {
+      "name": "license_present",
+      "status": "PASS",
+      "command": "cat LICENSE",
+      "summary": "MIT License present (1066 bytes). Wording anomaly noted: body says 'The above copyright notice' where standard MIT says 'The above copyright notice'. Non-functional documentation defect."
+    },
+    {
+      "name": "env_example_present",
+      "status": "PASS",
+      "command": "cat .env.example",
+      "summary": "1112 bytes; documents R2_PORT, R2_DATA_DIR, R2_HUMAN_TOKEN, R2_PROVIDER_MOCK, R2_MAGPIE_BASE/KEY, R2_CC_MODEL, R2_CODEX_MODEL, R2_SHARED_ROOTS, approvals, ASR"
+    },
+    {
+      "name": "readme_present",
+      "status": "PASS",
+      "command": "wc -c README.md app/README.md",
+      "summary": "README.md present (9932 bytes at run start); app/README.md present and used as the shared snapshot"
+    },
+    {
+      "name": "no_runtime_data_tracked",
+      "status": "PASS",
+      "command": "git ls-files | grep -Ei '(^|/)data[-/]|app/data'",
+      "summary": "No runtime data directory is tracked. .gitignore covers data/, data-*/, app/data/, qa/data*, *.log, *.wav."
+    }
+  ],
+  "workspace": {
+    "git_status_short": [
+      " M .gitignore",
+      " M README.md",
+      " M app/README.md",
+      " M app/providers.js",
+      " M app/server.js",
+      "?? .env.example",
+      "?? LICENSE",
+      "?? package.json",
+      "?? qa/qa_mock_evidence.json",
+      "?? test_verify.py"
+    ],
+    "runtime_data_tracked": false,
+    "app_readme_bytes_at_run_start": 12165,
+    "app_readme_bytes_at_final_check": 12602,
+    "app_readme_current_sha256": "NOT TESTED (not recomputed after the run)",
+    "note": "app/README.md was clean/12165 bytes at run start and became working-tree modified/12602 bytes after the checks completed, indicating a concurrent process changed it. The SHA-256 equality check passed against the file state during the test (93c04c8a...). This QA subagent did not modify app/README.md or any source file."
+  },
+  "http_statuses": [
+    ["GET /api/health", 200],
+    ["GET /api/state (no token)", 401],
+    ["GET /api/state (initial)", 200],
+    ["POST /api/control end initial", 200],
+    ["POST /api/rooms qa-meeting-1", 200],
+    ["POST /api/invite agent-a (codex-cli/openai)", 200],
+    ["POST /api/invite agent-b (claude-code-cli/magpie)", 200],
+    ["POST /api/shared/select app/README.md (meeting 1)", 200],
+    ["POST /api/messages mode=all", 200],
+    ["GET /api/health after meeting 1", 200],
+    ["POST /api/control end meeting 1", 200],
+    ["POST /api/rooms qa-meeting-2", 200],
+    ["GET /api/state (meeting 2)", 200],
+    ["GET /api/rooms", 200],
+    ["POST /api/shared/select app/README.md (meeting 2)", 200],
+    ["POST /api/invite agent-c (mock)", 200],
+    ["POST /api/messages mode=single target=agent-c", 200],
+    ["GET /api/health final", 200]
+  ],
+  "warnings": [
+    "LICENSE body contains the garbled word 'copyright' in place of 'copyright'; MIT text is otherwise complete.",
+    "app/README.md changed from 12165 to 12602 bytes after the test run (concurrent process); the snapshot hash equality check itself passed at test time."
+  ],
+  "not_tested": [
+    "Real Codex/Claude CLI providers (out of scope: mock mode only, no external accounts).",
+    "Browser UI walkthrough (API-only black-box checks)."
+  ],
+  "notes": [
+    "Fresh temporary R2_DATA_DIR, independent of test_verify.py temp dir, removed after the run.",
+    "Token value omitted from evidence; a throwaway token was set via R2_HUMAN_TOKEN.",
+    "Deterministic MockProvider echoes the shared snapshot SHA-256 in every reply.",
+    "No source files were modified by this QA subagent; only qa/qa_mock_evidence.json was written."
+  ]
+}
